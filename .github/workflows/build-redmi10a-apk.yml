@@ -44,11 +44,11 @@ jobs:
           # The legacy "tools" SDK package was retired; install current platform-tools only.
           packages: platform-tools
 
-      - name: Install Android SDK platform and native build tools
-        shell: bash
+      - name: Install Android SDK platform 37
+        run: sdkmanager --install "platforms;android-37"
+
+      - name: Install patchelf for the bundled runtime pack
         run: |
-          # setup-android has already accepted the SDK licenses above.
-          sdkmanager "platforms;android-37"
           sudo apt-get update
           sudo apt-get install -y patchelf
 
