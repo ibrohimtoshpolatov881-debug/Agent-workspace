@@ -51,6 +51,22 @@ jobs:
           packages=$(grep -oE 'platforms;android-[0-9]+(-[[:alnum:]._-]+)?' "$RUNNER_TEMP/sdk-packages.log" | sort -u | paste -sd ' ' - || true)
           echo "::notice title=Available Android SDK platforms::$packages"
 
+      - name: Accept preview Android SDK licenses
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          result = subprocess.run(
+              ["sdkmanager", "--channel=3", "--licenses"],
+              input=("y" + chr(10)) * 30,
+              text=True,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+          )
+          print(result.stdout)
+          raise SystemExit(result.returncode)
+          PY
+
       - name: Install Android SDK platform 37
         run: sdkmanager --channel=3 --install "platforms;android-37"
 
