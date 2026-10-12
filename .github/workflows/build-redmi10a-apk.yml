@@ -55,6 +55,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y patchelf
 
+      - name: Fix Alpine index parsing for strict pipefail
+        working-directory: agent
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          script = Path("tools/build-runtime-pack.sh")
+          text = script.read_text()
+          old = "f&&/^V:/{print substr($0,3); exit}"
+          new = "f&&/^V:/{print substr($0,3); f=0}"
+          if text.count(old) != 1:
+              raise SystemExit("Expected Alpine musl-version parser was not found")
+          script.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Build bundled arm64 runtime pack
         working-directory: agent
         shell: bash
