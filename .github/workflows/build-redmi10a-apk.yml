@@ -45,7 +45,17 @@ jobs:
           packages: platform-tools
 
       - name: Install Android SDK platform 37
-        run: sdkmanager --install "platforms;android-37"
+        shell: bash
+        run: |
+          if sdkmanager --install "platforms;android-37" > "$RUNNER_TEMP/sdkmanager.log" 2>&1; then
+            cat "$RUNNER_TEMP/sdkmanager.log"
+          else
+            status=$?
+            cat "$RUNNER_TEMP/sdkmanager.log"
+            details=$(tail -n 12 "$RUNNER_TEMP/sdkmanager.log" | tr '\n' ' ')
+            echo "::error title=Android SDK platform 37 install failed::$details"
+            exit "$status"
+          fi
 
       - name: Install patchelf for the bundled runtime pack
         run: |
