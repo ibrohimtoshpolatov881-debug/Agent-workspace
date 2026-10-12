@@ -57,7 +57,17 @@ jobs:
 
       - name: Build bundled arm64 runtime pack
         working-directory: agent
-        run: ./tools/build-runtime-pack.sh
+        shell: bash
+        run: |
+          set +e
+          ./tools/build-runtime-pack.sh > "$RUNNER_TEMP/runtime-pack.log" 2>&1
+          status=$?
+          cat "$RUNNER_TEMP/runtime-pack.log"
+          if [ "$status" -ne 0 ]; then
+            details=$(tr '\r' '\n' < "$RUNNER_TEMP/runtime-pack.log" | tail -n 20 | tr '\n' ' ')
+            echo "::error title=Runtime pack build failed::$details"
+          fi
+          exit "$status"
 
       - name: Assemble installable APK
         working-directory: agent
