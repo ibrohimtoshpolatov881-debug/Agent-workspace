@@ -55,7 +55,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y patchelf
 
-      - name: Fix Alpine index parsing for strict pipefail
+      - name: Patch upstream runtime-pack edge cases
         working-directory: agent
         shell: bash
         run: |
@@ -63,11 +63,15 @@ jobs:
           from pathlib import Path
           script = Path("tools/build-runtime-pack.sh")
           text = script.read_text()
-          old = "f&&/^V:/{print substr($0,3); exit}"
-          new = "f&&/^V:/{print substr($0,3); f=0}"
-          if text.count(old) != 1:
-              raise SystemExit("Expected Alpine musl-version parser was not found")
-          script.write_text(text.replace(old, new, 1))
+          replacements = {
+              "f&&/^V:/{print substr($0,3); exit}": "f&&/^V:/{print substr($0,3); f=0}",
+              'chmod 755 "$JNI/libcodex.so" "$JNI/librg.so"': 'chmod 755 "$JNI/libcodex.so"; [ ! -f "$JNI/librg.so" ] || chmod 755 "$JNI/librg.so"',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f"Expected runtime-pack fragment not found exactly once: {old}")
+              text = text.replace(old, new, 1)
+          script.write_text(text)
           PY
 
       - name: Build bundled arm64 runtime pack
@@ -83,6 +87,21 @@ jobs:
             echo "::error title=Runtime pack build failed::$details"
           fi
           exit "$status"
+
+      - name: Add static arm64 ripgrep to the runtime pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-unknown-linux-musl.tar.gz
+          curl --fail --location --silent --show-error --retry 3 "$url" -o "$RUNNER_TEMP/ripgrep.tar.gz"
+          echo "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915  $RUNNER_TEMP/ripgrep.tar.gz" | sha256sum --check --status
+          mkdir -p "$RUNNER_TEMP/ripgrep"
+          tar -xzf "$RUNNER_TEMP/ripgrep.tar.gz" -C "$RUNNER_TEMP/ripgrep"
+          cp "$RUNNER_TEMP/ripgrep/ripgrep-15.2.0-aarch64-unknown-linux-musl/rg" agent/app/src/main/jniLibs/arm64-v8a/librg.so
+          chmod 755 agent/app/src/main/jniLibs/arm64-v8a/librg.so
+          if patchelf --print-interpreter agent/app/src/main/jniLibs/arm64-v8a/librg.so >/dev/null 2>&1; then
+            patchelf --set-interpreter /data/user/0/com.past9.phoneaos/files/runtime/bin/ld-musl-aarch64.so.1 agent/app/src/main/jniLibs/arm64-v8a/librg.so
+          fi
 
       - name: Assemble installable APK
         working-directory: agent
