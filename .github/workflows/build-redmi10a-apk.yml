@@ -105,7 +105,20 @@ jobs:
 
       - name: Assemble installable APK
         working-directory: agent
-        run: ./gradlew --no-daemon --stacktrace -PagentName=Agent -PagentIcon=ic_launcher assembleDebug
+        shell: bash
+        run: |
+          set +e
+          ./gradlew --no-daemon --console=plain --stacktrace -PagentName=Agent -PagentIcon=ic_launcher assembleDebug > "$RUNNER_TEMP/gradle-build.log" 2>&1
+          status=$?
+          cat "$RUNNER_TEMP/gradle-build.log"
+          if [ "$status" -ne 0 ]; then
+            details=$(grep -E '^(e:|FAILURE:|[[:space:]]*What went wrong|[[:space:]]*> |.*error:|.*requires )' "$RUNNER_TEMP/gradle-build.log" | tail -n 15 | paste -sd ' ' -)
+            if [ -z "$details" ]; then
+              details=$(tail -n 15 "$RUNNER_TEMP/gradle-build.log" | paste -sd ' ' -)
+            fi
+            echo "::error title=Gradle assembleDebug failed::$details"
+          fi
+          exit "$status"
 
       - name: Prepare download
         shell: bash
