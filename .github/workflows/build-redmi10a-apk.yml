@@ -68,7 +68,25 @@ jobs:
           PY
 
       - name: Install Android SDK platform 37
-        run: sdkmanager --channel=3 --install "platforms;android-37"
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          import sys
+          result = subprocess.run(
+              ["sdkmanager", "--channel=3", "--verbose", "--install", "platforms;android-37"],
+              text=True,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+          )
+          output = result.stdout
+          print(output)
+          if result.returncode:
+              details = " | ".join(output.splitlines()[-40:])[:3500]
+              details = details.replace("%", "%25")
+              print(f"::error title=SDK platform install failed::{details}")
+          sys.exit(result.returncode)
+          PY
 
       - name: Install patchelf for the bundled runtime pack
         run: |
